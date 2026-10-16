@@ -337,6 +337,19 @@ async function findRoute() {
     }
 
     const route = data.routes[0];
+   
+navigationSteps = route.legs.flatMap(leg =>
+  leg.steps.map(step => ({
+    type: step.maneuver.type,
+    modifier: step.maneuver.modifier || '',
+    street: step.name || '',
+    location: step.maneuver.location,
+    distance: step.distance
+  }))
+);
+nextStepIndex = 0;
+navigationActive = false;
+
     const coordinates = route.geometry.coordinates.map(
       point => [point[1], point[0]]
     );
@@ -368,6 +381,87 @@ async function findRoute() {
     console.error(error);
   }
 }
+
+/* RoadVoice 3.1: spoken navigation preview */
+
+function describeTurn(step) {
+  const type = step.type || '';
+  const direction = step.modifier || '';
+  const street = step.street ? ' onto ' + step.street : '';
+
+  if (type === 'arrive') return 'You have arrived at your destination.';
+  if (type === 'depart') return 'Begin your journey' + street + '.';
+  if (type === 'roundabout' || type === 'rotary')
+    return 'Enter the roundabout and follow the route.';
+  if (type === 'merge') return 'Merge ' + direction + street + '.';
+  if (type === 'continue' || type === 'new name')
+    return 'Continue ' + direction + street + '.';
+  if (type === 'turn' || type === 'end of road' ||
+      type === 'fork' || type === 'on ramp' ||
+      type === 'off ramp')
+    return 'Turn ' + direction + street + '.';
+
+  return 'Follow the route' + street + '.';
+}
+
+function speakNavigation(message) {
+  if (!('speechSynthesis' in window)) return;
+
+  const personality = document.getElementById('personality').value;
+  let spoken = message;
+
+  if (personality === 'sarcastic')
+    spoken += ' You can do this. Probably.';
+  else if (personality === 'dramatic')
+    spoken += ' The journey continues!';
+  else if (personality === 'robot')
+    spoken = 'Navigation command. ' + message;
+
+  speechSynthesis.cancel();
+
+  const voice = new SpeechSynthesisUtterance(spoken);
+  voice.rate = personality === 'robot' ? 0.85 : 1;
+  voice.pitch = personality === 'dramatic' ? 1.25 : 1;
+
+  speechSynthesis.speak(voice);
+}
+
+function startNavigation() {
+  const status = document.getElementById('navStatus');
+
+  if (!navigationSteps.length) {
+    status.textContent = 'Find a route first.';
+    return;
+  }
+
+  if (!lastPosition) {
+    status.textContent = 'Start GPS tracking first.';
+    return;
+  }
+
+  navigationActive = true;
+  nextStepIndex = 0;
+
+  document.getElementById('follow').checked = true;
+  status.textContent = 'Navigation preview active. Keep this page open.';
+
+  const firstTurn = describeTurn(navigationSteps[0]);
+  document.getElementById('nextTurn').textContent =
+    'Next: ' + firstTurn;
+
+  speakNavigation(firstTurn);
+}
+
+function stopNavigation() {
+  navigationActive = false;
+  speechSynthesis.cancel();
+
+  document.getElementById('nextTurn').textContent =
+    'Next turn: No navigation active.';
+  document.getElementById('navStatus').textContent =
+    'Navigation stopped.';
+}
+
 </script>
 </body>
 </html>
