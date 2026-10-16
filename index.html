@@ -53,7 +53,11 @@ select{background:#34465a;color:white}
 
 <section class="card">
 <h2>🗺️ Live GPS Map</h2>
-<div id="map" aria-label="Interactive street map"></div>
+<label for="destination">Where do you want to go?</label>
+<input type="text" id="destination" placeholder="Enter a destination" style="width:100%;padding:14px;margin:8px 0;border-radius:10px;border:0;font-size:16px;">
+<button onclick="findRoute()">🚗 Find Route</button>
+<p id="routeStatus" class="small"></p>
+ <div id="map" aria-label="Interactive street map"></div>
 <p id="location" class="status" aria-live="polite">Location not requested.</p>
 <p id="accuracy" class="small"></p>
 <div class="row">
@@ -262,6 +266,97 @@ function playRecording(){
 }
 
 window.addEventListener('pagehide',()=>stopTracking(false));
+
+/* RoadVoice 3.0: destination search and route preview */
+let routeLine = null;
+let destinationMarker = null;
+
+async function findRoute() {
+  const status = document.getElementById('routeStatus');
+  const destination = document.getElementById('destination').value.trim();
+
+  if (!destination) {
+    status.textContent = 'Enter a destination first.';
+    return;
+  }
+
+  if (!map || !lastPosition) {
+    status.textContent = 'Tap Start Tracking and wait for GPS first.';
+    return;
+  }
+
+  status.textContent = 'Searching for destination...';
+
+  try {
+    const searchUrl = 'https://nominatim.openstreetmap.org/search?' +
+      new URLSearchParams({
+        q: destination,
+        format: 'json',
+        limit: '1'
+      });
+
+    const searchResponse = await fetch(searchUrl);
+    if (!searchResponse.ok) throw new Error('Destination search unavailable');
+
+    const places = await searchResponse.json();
+    if (!places.length) {
+      status.textContent = 'Destination not found. Try a full address.';
+      return;
+    }
+
+    const latitude = Number(places[0].lat);
+    const longitude = Number(places[0].lon);
+
+    status.textContent = 'Calculating driving route...';
+
+    const routeUrl =
+      'https://router.project-osrm.org/route/v1/driving/' +
+      lastPosition[1] + ',' + lastPosition[0] + ';' +
+      longitude + ',' + latitude +
+      '?overview=full&geometries=geojson&steps=true';
+
+    const routeResponse = await fetch(routeUrl);
+    if (!routeResponse.ok) throw new Error('Routing service unavailable');
+
+    const data = await routeResponse.json();
+
+    if (data.code !== 'Ok' || !data.routes?.length) {
+      status.textContent = 'No driving route found.';
+      return;
+    }
+
+    const route = data.routes[0];
+    const coordinates = route.geometry.coordinates.map(
+      point => [point[1], point[0]]
+    );
+
+    if (routeLine) map.removeLayer(routeLine);
+    if (destinationMarker) map.removeLayer(destinationMarker);
+
+    routeLine = L.polyline(coordinates, {
+      color: '#16b8ff',
+      weight: 6,
+      opacity: 0.9
+    }).addTo(map);
+
+    destinationMarker = L.marker([latitude, longitude])
+      .addTo(map)
+      .bindPopup('Destination: ' + places[0].display_name);
+
+    map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+
+    const miles = (route.distance / 1609.344).toFixed(1);
+    const minutes = Math.round(route.duration / 60);
+
+    status.textContent =
+      'Route found: ' + miles + ' miles, about ' +
+      minutes + ' minutes. Route preview only.';
+  } catch (error) {
+    status.textContent =
+      'Could not calculate route. Check your connection and try again.';
+    console.error(error);
+  }
+}
 </script>
 </body>
 </html>
