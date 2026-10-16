@@ -1,0 +1,27 @@
+*{box-sizing:border-box}body{margin:0;background:#0b1220;color:#f5f7fb;font-family:system-ui,sans-serif}header{padding:25px 20px;background:#15243a}h1{margin:0;font-size:28px}p{color:#adbed0}.wrap{padding:20px;max-width:600px;margin:auto}.panel{background:#17263b;border:1px solid #31455c;border-radius:16px;padding:18px;margin-bottom:16px}button,select,input{font:inherit;width:100%;padding:13px;border-radius:10px;margin-top:10px}button{background:#34c8dc;color:#08131b;border:0;font-weight:700}button.secondary{background:#304a65;color:white}select,input{background:#0c192b;color:white;border:1px solid #4b647c}label{display:block;margin-top:12px;font-weight:600}small{color:#b3c3d3}#status{overflow-wrap:anywhere}audio{width:100%;margin-top:12px} 
+
+🧭 RoadVoice
+
+Your road. Your voice.
+
+📍 GPS
+
+Location not requested.
+
+Find my locationLocation requires HTTPS and your permission. 
+
+🔊 Voice Studio
+
+PersonalityStandardSarcasticDramaticDevice voiceLoading available voices...Speech speedPreview instructionUses voices installed on your phone. 
+
+🎙️ Record a phrase
+
+Record your own voice and play it back.
+
+Start recordingStop recordingOr import an audio clipRecordings are not permanently saved in this prototype. 
+
+🛣️ Navigation
+
+Turn-by-turn routes and AI-generated voice packs are coming in the next development phase. This prototype does not provide driving directions.
+
+const $=id=>document.getElementById(id); $('locate').onclick=()=>{if(!navigator.geolocation){$('status').textContent='GPS is unavailable in this browser.';return;} $('status').textContent='Locating...';navigator.geolocation.getCurrentPosition(p=>{$('status').textContent=`Latitude: ${p.coords.latitude.toFixed(5)}, Longitude: ${p.coords.longitude.toFixed(5)} (±${Math.round(p.coords.accuracy)} m)`;},e=>{$('status').textContent='Location error: '+e.message;},{enableHighAccuracy:true,timeout:15000});}; let voices=[];function loadVoices(){if(!('speechSynthesis' in window))return;voices=speechSynthesis.getVoices();$('voices').innerHTML='';voices.forEach((v,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${v.name} (${v.lang})`;$('voices').append(o);});if(!voices.length){$('voices').innerHTML='<option value="">Default device voice</option>';}}if('speechSynthesis' in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;} $('preview').onclick=()=>{if(!('speechSynthesis' in window)){alert('Speech synthesis is unavailable.');return;}const lines={standard:'In 500 feet, turn right.',sarcastic:'In 500 feet, turn right. Yes, your other right.',dramatic:'In 500 feet, turn right. Your destiny awaits!'};speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(lines[$('style').value]);u.rate=Number($('rate').value);if(voices[$('voices').value])u.voice=voices[$('voices').value];speechSynthesis.speak(u);}; let recorder,stream,chunks=[],audioURL; $('record').onclick=async()=>{if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){alert('Recording is not supported here. Use HTTPS and Chrome.');return;}try{stream=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];recorder=new MediaRecorder(stream);recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};recorder.onstop=()=>{if(audioURL)URL.revokeObjectURL(audioURL);audioURL=URL.createObjectURL(new Blob(chunks,{type:recorder.mimeType||'audio/webm'}));$('playback').src=audioURL;stream.getTracks().forEach(t=>t.stop());};recorder.start();$('record').disabled=true;$('stop').disabled=false;}catch(e){alert('Microphone error: '+e.message);}}; $('stop').onclick=()=>{if(recorder?.state==='recording')recorder.stop();$('record').disabled=false;$('stop').disabled=true;}; $('upload').onchange=e=>{const file=e.target.files[0];if(!file)return;if(audioURL)URL.revokeObjectURL(audioURL);audioURL=URL.createObjectURL(file);$('playback').src=audioURL;}; 
