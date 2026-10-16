@@ -276,6 +276,11 @@ window.addEventListener('pagehide',()=>stopTracking(false));
 /* RoadVoice 3.0: destination search and route preview */
 let routeLine = null;
 let destinationMarker = null;
+ 
+let navigationSteps = [];
+let navigationActive = false;
+let nextStepIndex = 0;
+
 
 async function findRoute() {
   const status = document.getElementById('routeStatus');
