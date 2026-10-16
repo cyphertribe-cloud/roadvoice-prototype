@@ -462,6 +462,11 @@ function stopNavigation() {
     'Navigation stopped.';
 }
 
+/* Automatically start GPS when RoadVoice opens */
+window.addEventListener('load', () => {
+  startTracking();
+});
+
 </script>
 </body>
 </html>
