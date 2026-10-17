@@ -177,6 +177,7 @@ function geoError(e){
   1:'Location permission denied. Enable location access in browser settings.',
   2:'Location unavailable. Check GPS and signal.',
   3:'GPS timed out. Try again outside.'
+  if (navigationActive) checkUpcomingTurn();
  };
  locationText.textContent=errors[e.code]||'GPS error. Please retry.';
  if(e.code===1)stopTracking(false);
@@ -441,7 +442,7 @@ function startNavigation() {
 
   navigationActive = true;
   nextStepIndex = 0;
-
+  announcedTurnIndex = -1;
   document.getElementById('follow').checked = true;
   status.textContent = 'Navigation preview active. Keep this page open.';
 
@@ -450,6 +451,7 @@ function startNavigation() {
     'Next: ' + firstTurn;
 
   speakNavigation(firstTurn);
+  checkUpcomingTurn();
 }
 
 function stopNavigation() {
@@ -466,6 +468,57 @@ function stopNavigation() {
 window.addEventListener('load', () => {
   startTracking();
 });
+
+/* RoadVoice 3.2: GPS-based turn announcements */
+let announcedTurnIndex = -1;
+let lastTurnDistance = Infinity;
+
+function distanceInMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = degrees => degrees * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) ** 2;
+
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function checkUpcomingTurn() {
+  if (!navigationActive || !lastPosition || !navigationSteps.length) return;
+
+  const step = navigationSteps[nextStepIndex];
+  if (!step) {
+    stopNavigation();
+    return;
+  }
+
+  const [turnLon, turnLat] = step.location;
+  const meters = distanceInMeters(
+    lastPosition[0], lastPosition[1], turnLat, turnLon
+  );
+
+  const feet = Math.round(meters * 3.28084);
+  const instruction = describeTurn(step);
+
+  document.getElementById('nextTurn').textContent =
+    'Next: ' + instruction + ' (' + feet + ' feet away)';
+
+  // Announce once when within approximately 500 feet.
+  if (meters <= 152 && announcedTurnIndex !== nextStepIndex) {
+    speakNavigation('In about ' + feet + ' feet, ' + instruction);
+    announcedTurnIndex = nextStepIndex;
+  }
+
+  // Advance after passing very close to the maneuver.
+  if (meters <= 20 && announcedTurnIndex === nextStepIndex) {
+    nextStepIndex++;
+    announcedTurnIndex = -1;
+  }
+}
 
 </script>
 </body>
